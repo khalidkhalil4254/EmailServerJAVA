@@ -1,20 +1,18 @@
 package app;
-import java.io.*;
 import java.net.*;
 import java.sql.*;
 
 public class event extends gui{
     Connection con;
-    Statement stSend,stSignIn,stReceive,stSignUp;
-    ResultSet rsSend,rsSignIn;
+    Statement stSend,stSignIn,stReceive,stSignUp,stForget;
+    ResultSet rsSend,rsSignIn,rsForget;
     TOOL t;
-    static int count=0,portReceive=5555,portSend=6666,portSignIn=4444,portSignUp=3333;
-    ServerSocket serverSocketSend,serverSocketReceive,serverSocketSignUp,serverSocketSignIn;
+    static int count=0,portReceive=5555,portSend=6666,portSignIn=4444,portSignUp=3333,portForget=2222,portForgetThread=7777;
+    ServerSocket serverSocketSend,serverSocketReceive,serverSocketSignUp,serverSocketSignIn,serverSocketForget,serverSocketForgetPass;
 
-
+    //creating events handlers:-
     event(){
         t=new TOOL();
-
 
         try {
             con=DriverManager.getConnection("jdbc:mysql://localhost/emailSystem","root","root");
@@ -32,13 +30,15 @@ public class event extends gui{
                     try{
                         serverSocketReceive=new ServerSocket(portReceive);
                         stReceive= con.createStatement();
-                    }catch (Exception er){}
+                    }catch (Exception er){er.printStackTrace();}
 
                     while (true){
                         try {
                             String sender = t.receive(serverSocketReceive.accept());
                             String receiver = t.receive(serverSocketReceive.accept());
                             String msg = t.receive(serverSocketReceive.accept());
+
+                            System.out.println(sender+" "+receiver+" "+msg);
 
                             if (!sender.equals("") && !receiver.equals("") && !msg.equals("")) {
                                 String query = "INSERT INTO email(sender,receiver,msg) VALUES ( '" + sender + "', '" + receiver + "', '" + msg + "');";
@@ -52,11 +52,10 @@ public class event extends gui{
                 });
 
                 Thread send=new Thread(()->{
-
                     try{
                         serverSocketSend=new ServerSocket(portSend);
                         stSend=con.createStatement();
-                    }catch (Exception er){}
+                    }catch (Exception er){er.printStackTrace();}
 
                     while(true){
                         String sql="select * from email;";
@@ -81,7 +80,7 @@ public class event extends gui{
                     try {
                         serverSocketSignIn=new ServerSocket(portSignIn);
                         stSignIn=con.createStatement();
-                    }catch (Exception er){}
+                    }catch (Exception er){er.printStackTrace();}
 
                     while (true){
                         try {
@@ -110,20 +109,21 @@ public class event extends gui{
                 });
 
                 Thread signUp=new Thread(()->{
-
                     try {
                         serverSocketSignUp=new ServerSocket(portSignUp);
                         stSignUp=con.createStatement();
-                    }catch (Exception er){}
+                    }catch (Exception er){er.printStackTrace();}
 
                     while(true){
                         try {
                             String user=t.receive(serverSocketSignUp.accept());
                             String pass=t.receive(serverSocketSignUp.accept());
-
+                            System.out.println(user+" "+pass);
                             if(!user.equals("") && !pass.equals("")){
+                                System.out.println(user+" "+pass);
                                 String sql="INSERT INTO auth(username,password) VALUES ( '"+user+"', '"+pass+"');";
                                 stSignUp.executeUpdate(sql);
+                                t.send(serverSocketSignUp.accept(),"yes");
                             }
 
                         }catch (Exception er){
@@ -133,15 +133,44 @@ public class event extends gui{
 
                 });
 
+                Thread forget=new Thread(()->{
+                    try {
+                        serverSocketForget=new ServerSocket(portForget);//for receiving username
+                        serverSocketForgetPass=new ServerSocket(portForgetThread);//for sending the password to the user
+                        stForget=con.createStatement();
+                    }catch (Exception er){er.printStackTrace();}
 
+                    while(true){
+                        try {
+                            String user=t.receive(serverSocketForget.accept());
+
+                        if(!user.equals("")){
+                            System.out.println(user);
+                            String sql="select * from auth;";
+                            rsForget=stForget.executeQuery(sql);
+                            while(rsForget.next()){
+                                String username=rsForget.getString("username");
+                                String pass=rsForget.getString("password");
+                                if(username.equals(user)){
+                                    t.send(serverSocketForgetPass.accept(),pass);
+                                    break;
+                                }
+                            }
+                        }
+
+                        }catch (Exception er){
+                            System.out.println("signUp error:"+er);
+                        }
+                    }
+                });
+
+                forget.start();
                 receive.start();
                 send.start();
                 signIn.start();
                 signUp.start();
             }
-
             count++;
-
         });
 
     }
