@@ -1,21 +1,30 @@
 package app;
+import javax.xml.crypto.Data;
 import java.net.*;
 import java.sql.*;
+import java.time.*;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 public class event extends gui{
     Connection con;
-    Statement stSend,stSignIn,stReceive,stSignUp,stForget;
-    ResultSet rsSend,rsSignIn,rsForget;
+    Statement stSend,stSignIn,stReceive,stSignUp,stForget,stLogs;
+    ResultSet rsSend,rsSignIn,rsForget,rsLogs;
     TOOL t;
     static int count=0,portReceive=5555,portSend=6666,portSignIn=4444,portSignUp=3333,portForget=2222,portForgetThread=7777;
     ServerSocket serverSocketSend,serverSocketReceive,serverSocketSignUp,serverSocketSignIn,serverSocketForget,serverSocketForgetPass;
+    static String log="";
+    ArrayList logs;
 
     //creating events handlers:-
     event(){
         t=new TOOL();
+        logs=new ArrayList<String>();
+
 
         try {
             con=DriverManager.getConnection("jdbc:mysql://localhost/emailSystem","root","root");
+            stLogs=con.createStatement();
             System.out.println("DB connected successfully!");
         }catch (Exception er){er.printStackTrace();}
 
@@ -30,7 +39,20 @@ public class event extends gui{
                     try{
                         serverSocketReceive=new ServerSocket(portReceive);
                         stReceive= con.createStatement();
-                    }catch (Exception er){er.printStackTrace();}
+                    }catch (Exception er){
+                        String sql="INSERT INTO _logs(log) VALUES ('"+ er +"');";
+                        String sql1="select * from _logs;";
+                        try {
+                            stLogs.executeUpdate(sql);
+                            rsLogs=stLogs.executeQuery(sql1);
+                            while(rsLogs.next()){
+                                log+=rsLogs.getString("log")+"\t"+rsLogs.getString("_date")+"\n\n\n";
+                            }
+                        } catch (SQLException ex) {
+                            ex.printStackTrace();
+                        }
+                        logs_txt.setText(log);
+                    }
 
                     while (true){
                         try {
@@ -38,15 +60,40 @@ public class event extends gui{
                             String receiver = t.receive(serverSocketReceive.accept());
                             String msg = t.receive(serverSocketReceive.accept());
 
-                            System.out.println(sender+" "+receiver+" "+msg);
 
                             if (!sender.equals("") && !receiver.equals("") && !msg.equals("")) {
                                 String query = "INSERT INTO email(sender,receiver,msg) VALUES ( '" + sender + "', '" + receiver + "', '" + msg + "');";
                                 stReceive.executeUpdate(query);
+
+                                //setting the logs up:-
+                                String log="Sender:"+sender+" sending "+"Mail:"+ msg +" to:"+receiver+"\n\n\n";
+                                String sql="INSERT INTO _logs(log) VALUES ('"+ log +"');";
+                                stLogs.executeUpdate(sql);
+
+                                //displaying the logs into the screen:-
+                                String sql1="select * from _logs;";
+                                rsLogs=stLogs.executeQuery(sql1);
+
+                                while(rsLogs.next()){
+                                    logs.add(rsLogs.getString("log")+"\t"+rsLogs.getString("_date")+"\n\n");
+                                }
+                                logs_txt.setText(Arrays.toString(logs.toArray()));
+
                             }
 
-                        } catch (Exception ex) {
-                            System.out.println("receiving error:"+ex);
+                        } catch (Exception er) {
+                            String sql="INSERT INTO _logs(log) VALUES ('"+ er +"');";
+                            String sql1="select * from _logs;";
+                            try {
+                                stLogs.executeUpdate(sql);
+                                rsLogs=stLogs.executeQuery(sql1);
+                                while(rsLogs.next()){
+                                    log+=rsLogs.getString("log")+"\t"+rsLogs.getString("_date")+"\n\n\n";
+                                }
+                            } catch (SQLException ex) {
+                                ex.printStackTrace();
+                            }
+                            logs_txt.setText(log);
                         }
                     }
                 });
@@ -62,6 +109,7 @@ public class event extends gui{
                         try {
                             rsSend=stSend.executeQuery(sql);
                             while(rsSend.next()){
+                                Thread.sleep(200);
                                 String sender=rsSend.getString("sender");
                                 String receiver=rsSend.getString("receiver");
                                 String msg=rsSend.getString("msg");
@@ -70,7 +118,18 @@ public class event extends gui{
                                 t.send(serverSocketSend.accept(),msg);
                             }
                         }catch (Exception er){
-                            System.out.println("sending error:"+er);
+                            String sql1="INSERT INTO _logs(log) VALUES ('"+ er +"');";
+                            String sql2="select * from _logs;";
+                            try {
+                                stLogs.executeUpdate(sql1);
+                                rsLogs=stLogs.executeQuery(sql2);
+                                while(rsLogs.next()){
+                                    log+=rsLogs.getString("log")+"\t"+rsLogs.getString("_date")+"\n\n\n";
+                                }
+                            } catch (SQLException ex) {
+                                ex.printStackTrace();
+                            }
+                            logs_txt.setText(log);
                         }
                     }
                 });
@@ -79,7 +138,7 @@ public class event extends gui{
                 Thread signIn=new Thread(()-> {
                     try {
                         serverSocketSignIn=new ServerSocket(portSignIn);
-                        stSignIn=con.createStatement();
+                        stSignIn=con.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,ResultSet.CONCUR_READ_ONLY);
                     }catch (Exception er){er.printStackTrace();}
 
                     while (true){
@@ -87,23 +146,67 @@ public class event extends gui{
                             String sql = "select * from auth;";
                             rsSignIn = stSignIn.executeQuery(sql);
                             String user = t.receive(serverSocketSignIn.accept());
-                            System.out.println("username received!="+user);
                             String pass = t.receive(serverSocketSignIn.accept());
-                            System.out.println("PASSWORD received!="+pass);
                             if(!user.equals("") && !pass.equals("")){
+                                boolean flag=false;
                                 while (rsSignIn.next()){
                                     String username=rsSignIn.getString("username");
                                     String password=rsSignIn.getString("password");
-                                    if(user.equals(username) && pass.equals(password)){
-                                        t.send(serverSocketSignIn.accept(),"yes");
+
+                                    if(user.equals(username) && pass.equals(password)) {
+                                        flag=true;
+                                        t.send(serverSocketSignIn.accept(), "yes");
+                                        //setting the logs up:-
+                                        String log="SignIn username:"+user+" password:"+pass+" Server Response: yes!"+"\n\n\n";
+                                        String sql1="INSERT INTO _logs(log) VALUES ('"+ log +"');";
+                                        stLogs.executeUpdate(sql1);
+
+                                        //displaying the logs into the screen:-
+                                        String sql2="select * from _logs;";
+                                        rsLogs=stLogs.executeQuery(sql2);
+
+                                        while(rsLogs.next()){
+                                            logs.add(rsLogs.getString("log")+"\t"+rsLogs.getString("_date")+"\n\n");
+                                        }
+                                        logs_txt.setText(Arrays.toString(logs.toArray()));
+
+
                                         break;
-                                    }else if(!user.equals(username) && !pass.equals(password)){
-                                        t.send(serverSocketSignIn.accept(),"no");
                                     }
                                 }
+                                if (flag==false) {
+
+                                    //setting the logs up:-
+                                    String log="SignIn username:"+user+" password:"+pass+" Server Response: no!"+"\n\n\n";
+                                    String sql1="INSERT INTO _logs(log) VALUES ('"+ log +"');";
+                                    stLogs.executeUpdate(sql1);
+
+                                    //displaying the logs into the screen:-
+                                    String sql2="select * from _logs;";
+                                    rsLogs=stLogs.executeQuery(sql2);
+
+                                    while(rsLogs.next()){
+                                        logs.add(rsLogs.getString("log")+"\t"+rsLogs.getString("_date")+"\n\n");
+                                    }
+                                    logs_txt.setText(Arrays.toString(logs.toArray()));
+
+                                    t.send(serverSocketSignIn.accept(), "no");
+                                }
+
                             }
                         }catch (Exception er){
-                            System.out.println("signIn error:"+er);
+                            String sql1="INSERT INTO _logs(log) VALUES ('"+ er +"');";
+                            String sql2="select * from _logs;";
+                            try {
+                                stLogs.executeUpdate(sql1);
+                                rsLogs=stLogs.executeQuery(sql2);
+                                while(rsLogs.next()){
+                                    log+=rsLogs.getString("log")+"\t"+rsLogs.getString("_date")+"\n\n\n";
+                                }
+                            } catch (SQLException ex) {
+                                ex.printStackTrace();
+                            }
+                            logs_txt.setText(log);
                         }
                     }
                 });
@@ -124,10 +227,38 @@ public class event extends gui{
                                 String sql="INSERT INTO auth(username,password) VALUES ( '"+user+"', '"+pass+"');";
                                 stSignUp.executeUpdate(sql);
                                 t.send(serverSocketSignUp.accept(),"yes");
+
+
+                                //setting the logs up:-
+                                String log="SignUp username:"+user+" password:"+pass+" Server Response: yes!"+"\n\n\n";
+                                String sql1="INSERT INTO _logs(log) VALUES ('"+ log +"');";
+                                stLogs.executeUpdate(sql1);
+
+                                //displaying the logs into the screen:-
+                                String sql2="select * from _logs;";
+                                rsLogs=stLogs.executeQuery(sql2);
+
+                                while(rsLogs.next()){
+                                    logs.add(rsLogs.getString("log")+"\t"+rsLogs.getString("_date")+"\n\n");
+                                }
+                                logs_txt.setText(Arrays.toString(logs.toArray()));
+
+
                             }
 
                         }catch (Exception er){
-                            System.out.println("signUp error:"+er);
+                            String sql1="INSERT INTO _logs(log) VALUES ('"+ er +"');";
+                            String sql2="select * from _logs;";
+                            try {
+                                stLogs.executeUpdate(sql1);
+                                rsLogs=stLogs.executeQuery(sql2);
+                                while(rsLogs.next()){
+                                    log+=rsLogs.getString("log")+"\t"+rsLogs.getString("_date")+"\n\n\n";
+                                }
+                            } catch (SQLException ex) {
+                                ex.printStackTrace();
+                            }
+                            logs_txt.setText(log);
                         }
                     }
 
@@ -153,13 +284,39 @@ public class event extends gui{
                                 String pass=rsForget.getString("password");
                                 if(username.equals(user)){
                                     t.send(serverSocketForgetPass.accept(),pass);
+
+                                    //setting the logs up:-
+                                    String log="Forget Request username:"+user+ " Retrieved password:"+pass+"\n\n\n";
+                                    String sql1="INSERT INTO _logs(log) VALUES ('"+ log +"');";
+                                    stLogs.executeUpdate(sql1);
+
+                                    //displaying the logs into the screen:-
+                                    String sql2="select * from _logs;";
+                                    rsLogs=stLogs.executeQuery(sql2);
+
+                                    while(rsLogs.next()){
+                                        logs.add(rsLogs.getString("log")+"\t"+rsLogs.getString("_date")+"\n\n");
+                                    }
+                                    logs_txt.setText(Arrays.toString(logs.toArray()));
+
                                     break;
                                 }
                             }
                         }
 
                         }catch (Exception er){
-                            System.out.println("signUp error:"+er);
+                            String sql1="INSERT INTO _logs(log) VALUES ('"+ er +"');";
+                            String sql2="select * from _logs;";
+                            try {
+                                stLogs.executeUpdate(sql1);
+                                rsLogs=stLogs.executeQuery(sql2);
+                                while(rsLogs.next()){
+                                    log+=rsLogs.getString("log")+"\t"+rsLogs.getString("_date")+"\n\n\n";
+                                }
+                            } catch (SQLException ex) {
+                                ex.printStackTrace();
+                            }
+                            logs_txt.setText(log);
                         }
                     }
                 });
@@ -169,6 +326,7 @@ public class event extends gui{
                 send.start();
                 signIn.start();
                 signUp.start();
+
             }
             count++;
         });
