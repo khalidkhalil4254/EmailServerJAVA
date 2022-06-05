@@ -11,7 +11,7 @@ public class event extends gui{
     Statement stSend,stSignIn,stReceive,stSignUp,stForget,stLogs;
     ResultSet rsSend,rsSignIn,rsForget,rsLogs;
     TOOL t;
-    static int count=0,portReceive=5555,portSend=6666,portSignIn=4444,portSignUp=3333,portForget=2222,portForgetThread=7777;
+    static int count=0,portReceive=5555,portSend=6666,portSignIn=8080,portSignUp=3333,portForget=2222,portForgetThread=7777;
     ServerSocket serverSocketSend,serverSocketReceive,serverSocketSignUp,serverSocketSignIn,serverSocketForget,serverSocketForgetPass;
     static String log="";
     ArrayList logs;
@@ -147,7 +147,7 @@ public class event extends gui{
                             rsSignIn = stSignIn.executeQuery(sql);
                             String user = t.receive(serverSocketSignIn.accept());
                             String pass = t.receive(serverSocketSignIn.accept());
-                            if(!user.equals("") && !pass.equals("")){
+
                                 boolean flag=false;
                                 while (rsSignIn.next()){
                                     String username=rsSignIn.getString("username");
@@ -193,7 +193,7 @@ public class event extends gui{
                                     t.send(serverSocketSignIn.accept(), "no");
                                 }
 
-                            }
+
                         }catch (Exception er){
                             String sql1="INSERT INTO _logs(log) VALUES ('"+ er +"');";
                             String sql2="select * from _logs;";
