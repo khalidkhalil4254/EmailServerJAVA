@@ -11,13 +11,17 @@ public class event extends gui{
     Statement stSend,stSignIn,stReceive,stSignUp,stForget,stLogs;
     ResultSet rsSend,rsSignIn,rsForget,rsLogs;
     TOOL t;
-    static int count=0,portReceive=5555,portSend=6666,portSignIn=8080,portSignUp=3333,portForget=2222,portForgetThread=7777;
+    static int count=0,portReceive=5555,portSend=6666,portSignIn=8080,portSignUp=3333,portForget=2222,portForgetThread=7777,portFile=5432;
     ServerSocket serverSocketSend,serverSocketReceive,serverSocketSignUp,serverSocketSignIn,serverSocketForget,serverSocketForgetPass;
     static String log="";
     ArrayList logs;
 
     //creating events handlers:-
     event(){
+
+        long start = System.currentTimeMillis();
+
+
         t=new TOOL();
         logs=new ArrayList<String>();
 
@@ -35,6 +39,8 @@ public class event extends gui{
 
             if(count==0){
                 status_lbl.setText("Status: Started!");
+
+
                 Thread receive=new Thread(()-> {
                     try{
                         serverSocketReceive=new ServerSocket(portReceive);
@@ -321,6 +327,21 @@ public class event extends gui{
                     }
                 });
 
+
+                Thread fileReceiving=new Thread(()->{
+                    TOOL tool=new TOOL();
+                    try {
+                        byte[]data=tool.receiveBytes(new ServerSocket(portFile).accept());
+
+
+                    }catch (Exception er){
+                        er.printStackTrace();
+                    }
+                });
+
+
+
+                fileReceiving.start();
                 forget.start();
                 receive.start();
                 send.start();
@@ -330,6 +351,14 @@ public class event extends gui{
             }
             count++;
         });
+
+
+        long end = System.currentTimeMillis();
+
+
+
+        System.out.println("benchmarks:"+(end - start));
+
 
     }
 }

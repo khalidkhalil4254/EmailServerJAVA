@@ -76,6 +76,25 @@ public class TOOL {
     }
 
 
+    void sendBytes(Socket socket,byte msg[]) throws IOException{
+        DataOutputStream out=new DataOutputStream(socket.getOutputStream());
+        out.write(msg);
+        out.flush();
+        out.close();
+    }
+
+
+    byte[]receiveBytes(Socket socket){
+        byte[]arr = new byte[0];
+        try{
+            DataInputStream in=new DataInputStream(socket.getInputStream());
+            arr=in.readAllBytes();
+        }catch (Exception er){
+            er.printStackTrace();
+        }
+        return arr;
+    }
+
     String receive(Socket socket) throws IOException {
         String res;
             DataInputStream in=new DataInputStream(socket.getInputStream());
