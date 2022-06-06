@@ -1,6 +1,8 @@
 package app;
 import javax.xml.crypto.Data;
+import java.io.*;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.time.*;
 import java.util.ArrayList;
@@ -11,7 +13,7 @@ public class event extends gui{
     Statement stSend,stSignIn,stReceive,stSignUp,stForget,stLogs;
     ResultSet rsSend,rsSignIn,rsForget,rsLogs;
     TOOL t;
-    static int count=0,portReceive=5555,portSend=6666,portSignIn=8080,portSignUp=3333,portForget=2222,portForgetThread=7777,portFile=5432;
+    static int count=0,portReceive=5555,portSend=6666,portSignIn=8080,portSignUp=3333,portForget=2222,portForgetThread=7777,portReceiveFile=5431;
     ServerSocket serverSocketSend,serverSocketReceive,serverSocketSignUp,serverSocketSignIn,serverSocketForget,serverSocketForgetPass;
     static String log="";
     ArrayList logs;
@@ -331,7 +333,15 @@ public class event extends gui{
                 Thread fileReceiving=new Thread(()->{
                     TOOL tool=new TOOL();
                     try {
-                        byte[]data=tool.receiveBytes(new ServerSocket(portFile).accept());
+                        byte[]data=tool.receiveBytes(new ServerSocket(portReceiveFile).accept());
+
+                        if(data!="".getBytes(StandardCharsets.UTF_8)){
+                            File f=new File("file.txt");
+                            OutputStream out=new FileOutputStream(f);
+                            out.write(data);
+                            out.flush();
+                            out.close();
+                        }
 
 
                     }catch (Exception er){
